@@ -56,7 +56,7 @@ export const useInterview = () => {
             setLoading(false)
         }
 
-        return response.interviewReports
+        return response?.interviewReports ?? []
     }
 
     const getResumePdf = async (interviewReportId) => {
