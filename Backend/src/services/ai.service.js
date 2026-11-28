@@ -2,6 +2,7 @@ const { GoogleGenAI } = require("@google/genai")
 const { z } = require("zod")
 const { zodToJsonSchema } = require("zod-to-json-schema")
 const puppeteer = require("puppeteer")
+const chromium = require("@sparticuz/chromium")
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_GENAI_API_KEY
@@ -62,14 +63,28 @@ async function generatePdfFromHtml(htmlContent) {
     let stage = "launching Chrome"
     try {
         console.log("[resume-pdf] Launching Chrome")
-        browser = await puppeteer.launch({
+        const launchOptions = {
             headless: true,
             args: [
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage"
             ]
-        })
+        }
+
+        if (process.platform === "linux") {
+            launchOptions.executablePath = await chromium.executablePath()
+            launchOptions.headless = "shell"
+            launchOptions.args = [
+                ...chromium.args.filter((argument) =>
+                    argument !== "--disable-web-security" &&
+                    argument !== "--allow-running-insecure-content"
+                ),
+                "--disable-dev-shm-usage"
+            ]
+        }
+
+        browser = await puppeteer.launch(launchOptions)
 
         stage = "rendering resume HTML"
         console.log("[resume-pdf] Rendering resume HTML")
