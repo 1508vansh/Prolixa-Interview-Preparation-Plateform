@@ -18,3 +18,17 @@ body,
 .highlight{
     color: #78a99f;
 }
+
+.auth-toolbar {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    p {
+        color: #e17575;
+    }
+}

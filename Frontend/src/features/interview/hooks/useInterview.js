@@ -1,5 +1,5 @@
 import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf } from "../services/interview.api"
-import { useContext, useEffect } from "react"
+import { useContext, useEffect, useRef } from "react"
 import { InterviewContext } from "../interview.context"
 import { useParams } from "react-router"
 
@@ -14,6 +14,7 @@ export const useInterview = () => {
     }
 
     const { loading, setLoading, report, setReport, reports, setReports } = context
+    const resumePdfRequestInProgress = useRef(false)
 
     const generateReport = async ({ jobDescription, selfDescription, resumeFile }) => {
         setLoading(true)
@@ -27,7 +28,7 @@ export const useInterview = () => {
             setLoading(false)
         }
 
-        return response.interviewReport
+        return response?.interviewReport ?? null
     }
 
     const getReportById = async (interviewId) => {
@@ -41,7 +42,7 @@ export const useInterview = () => {
         } finally {
             setLoading(false)
         }
-        return response.interviewReport
+        return response?.interviewReport ?? null
     }
 
     const getReports = async () => {
@@ -60,23 +61,28 @@ export const useInterview = () => {
     }
 
     const getResumePdf = async (interviewReportId) => {
+        if (resumePdfRequestInProgress.current) return
+
+        resumePdfRequestInProgress.current = true
         setLoading(true)
         try {
             const response = await generateResumePdf({ interviewReportId })
-            const url = window.URL.createObjectURL(
-                new Blob([ response ], { type: "application/pdf" })
-            )
+            const pdfBlob = response instanceof Blob
+                ? response
+                : new Blob([ response ], { type: "application/pdf" })
+            const url = window.URL.createObjectURL(pdfBlob)
             const link = document.createElement("a")
             link.href = url
             link.setAttribute("download", `resume_${interviewReportId}.pdf`)
             document.body.appendChild(link)
             link.click()
             link.remove()
-            window.setTimeout(() => window.URL.revokeObjectURL(url), 0)
+            window.setTimeout(() => window.URL.revokeObjectURL(url), 1000)
         }
         catch (error) {
             console.log(error)
         } finally {
+            resumePdfRequestInProgress.current = false
             setLoading(false)
         }
     }

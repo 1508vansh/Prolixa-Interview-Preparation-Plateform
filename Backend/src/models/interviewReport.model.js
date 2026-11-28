@@ -72,6 +72,10 @@ const interviewReportSchema = new mongoose.Schema({
     resume: {
         type: String,
     },
+    resumePdf: {
+        type: Buffer,
+        select: false
+    },
     selfDescription: {
         type: String,
     },

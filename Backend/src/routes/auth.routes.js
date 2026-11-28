@@ -21,10 +21,12 @@ authRouter.post("/login", authController.loginUserController)
 
 
 /**
- * @route GET /api/auth/logout
+ * @route POST /api/auth/logout
  * @description clear token from user cookie and add the token in blacklist
  * @access public
  */
+authRouter.post("/logout", authController.logoutUserController)
+
 authRouter.get("/logout", authController.logoutUserController)
 
 
