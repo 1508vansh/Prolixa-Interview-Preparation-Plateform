@@ -1,9 +1,21 @@
 import { useAuth } from "../hooks/useAuth";
 import { Navigate } from "react-router";
+import { useState } from "react";
 import React from 'react'
 
 const Protected = ({children}) => {
-    const { loading,user } = useAuth()
+    const { loading, user, handleLogout } = useAuth()
+    const [logoutError, setLogoutError] = useState("")
+
+    const onLogout = async () => {
+        setLogoutError("")
+        try {
+            await handleLogout()
+        } catch (error) {
+            console.error("Logout failed", error)
+            setLogoutError("Unable to log out. Please try again.")
+        }
+    }
 
 
     if(loading){
@@ -14,7 +26,17 @@ const Protected = ({children}) => {
         return <Navigate to={'/login'} />
     }
     
-    return children
+    return (
+        <>
+            <div className="auth-toolbar">
+                {logoutError && <p role="alert">{logoutError}</p>}
+                <button className="button primary-button" type="button" onClick={onLogout}>
+                    Log out
+                </button>
+            </div>
+            {children}
+        </>
+    )
 }
 
 export default Protected

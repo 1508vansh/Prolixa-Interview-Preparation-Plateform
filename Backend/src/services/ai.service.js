@@ -58,19 +58,26 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
 
 
 async function generatePdfFromHtml(htmlContent) {
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage"
-        ]
-    })
-
+    let browser
+    let stage = "launching Chrome"
     try {
+        console.log("[resume-pdf] Launching Chrome")
+        browser = await puppeteer.launch({
+            headless: true,
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage"
+            ]
+        })
+
+        stage = "rendering resume HTML"
+        console.log("[resume-pdf] Rendering resume HTML")
         const page = await browser.newPage()
         await page.setContent(htmlContent, { waitUntil: "networkidle0" })
 
+        stage = "creating PDF"
+        console.log("[resume-pdf] Creating PDF bytes")
         return await page.pdf({
             format: "A4",
             margin: {
@@ -80,8 +87,13 @@ async function generatePdfFromHtml(htmlContent) {
                 right: "15mm"
             }
         })
+    } catch (error) {
+        console.error(`[resume-pdf] Failed while ${stage}:`, error.stack || error.message)
+        throw error
     } finally {
-        await browser.close()
+        if (browser) {
+            await browser.close()
+        }
     }
 }
 
@@ -104,17 +116,30 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
                         The resume should not be so lengthy, it should ideally be 1-2 pages long when converted to PDF. Focus on quality rather than quantity and make sure to include all the relevant information that can increase the candidate's chances of getting an interview call for the given job description.
                     `
 
-    const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(resumePdfSchema),
-        }
-    })
+    let response
+    try {
+        console.log("[resume-pdf] Requesting resume HTML from Gemini")
+        response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: zodToJsonSchema(resumePdfSchema),
+            }
+        })
+    } catch (error) {
+        console.error("[resume-pdf] Gemini request failed:", error.stack || error.message)
+        throw error
+    }
 
-
-    const jsonContent = JSON.parse(response.text)
+    let jsonContent
+    try {
+        console.log("[resume-pdf] Parsing generated resume HTML")
+        jsonContent = JSON.parse(response.text)
+    } catch (error) {
+        console.error("[resume-pdf] Failed to parse Gemini response:", error.stack || error.message)
+        throw error
+    }
 
     const pdfBuffer = await generatePdfFromHtml(jsonContent.html)
 

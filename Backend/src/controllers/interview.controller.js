@@ -74,28 +74,48 @@ async function getAllInterviewReportsController(req, res) {
  */
 async function generateResumePdfController(req, res) {
     const { interviewReportId } = req.params
+    let stage = "loading interview report"
 
-    const interviewReport = await interviewReportModel.findOne({
-        _id: interviewReportId,
-        user: req.user.id
-    })
+    console.log(`[resume-pdf] Request started for report ${interviewReportId}`)
 
-    if (!interviewReport) {
-        return res.status(404).json({
-            message: "Interview report not found."
+    try {
+        const interviewReport = await interviewReportModel.findOne({
+            _id: interviewReportId,
+            user: req.user.id
+        }).select("+resumePdf")
+
+        if (!interviewReport) {
+            console.log(`[resume-pdf] Report ${interviewReportId} was not found for the authenticated user`)
+            return res.status(404).json({
+                message: "Interview report not found."
+            })
+        }
+
+        let pdfBuffer = interviewReport.resumePdf
+        if (!pdfBuffer?.length) {
+            const { resume, jobDescription, selfDescription } = interviewReport
+            stage = "generating resume PDF"
+            console.log(`[resume-pdf] No cached PDF for report ${interviewReportId}; generating it`)
+            pdfBuffer = Buffer.from(await generateResumePdf({ resume, jobDescription, selfDescription }))
+
+            stage = "saving generated PDF"
+            interviewReport.resumePdf = pdfBuffer
+            await interviewReport.save()
+        } else {
+            console.log(`[resume-pdf] Using cached PDF for report ${interviewReportId}`)
+        }
+
+        stage = "sending PDF response"
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`
         })
+
+        res.send(pdfBuffer)
+    } catch (error) {
+        console.error(`[resume-pdf] Failed while ${stage} for report ${interviewReportId}:`, error.stack || error.message)
+        throw error
     }
-
-    const { resume, jobDescription, selfDescription } = interviewReport
-
-    const pdfBuffer = await generateResumePdf({ resume, jobDescription, selfDescription })
-
-    res.set({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`
-    })
-
-    res.send(pdfBuffer)
 }
 
 module.exports = { generateInterViewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController }
